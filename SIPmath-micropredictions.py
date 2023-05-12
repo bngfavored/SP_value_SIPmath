@@ -25,10 +25,7 @@ from bokeh.models import CustomJS
 from streamlit_bokeh_events import streamlit_bokeh_events
 from microprediction import MicroWriter
 warnings.filterwarnings('ignore')
-sipmath_name = "Google Stock Value"
-stock_stream_name = 'quick_yarx_goog.json'
-corr = 0.63
-var_id = 3
+sipmath_name = "S&P Index Value"
 main_title = f'One Hour Ahead Stochastic {sipmath_name} Predictions'
 st.set_page_config(page_title=f"microprediction: {main_title}", page_icon=None,
                    layout="wide", initial_sidebar_state="auto", menu_items=None)
@@ -114,15 +111,6 @@ def remove_outliers(data):
     # Remove outliers and retain data within the bounds
     filtered_data = [x for x in data if lower_bound <= x <= upper_bound]
     return filtered_data
-
-def micropredictions_stock(stream_name = stock_stream_name):
-    CYMBALO_COYOTE="e0a0c29acbf143899df20a20ceaf3556"
-    mw = MicroWriter(write_key=CYMBALO_COYOTE)
-    samples = mw.get_own_predictions(name=stream_name,delay=mw.DELAYS[-1], strip=True, consolidate=True)
-    data = pd.DataFrame(remove_outliers(samples), columns=[sipmath_name])
-    # step = 1 / data.shape[0]
-    # data.index = (data.index + 1)*step
-    return data
 
 def micropredictions_S_P():
     HEBDOMAD_LEECH='8c386f8221c950008bad5221e9d4ada6'
@@ -302,18 +290,16 @@ def convert_to_JSON(input_df,
                     bounds,
                     term_saved,
                     probs,
-                    quantile_corr_matrix,
                     seeds ):
 
-    PySIP.Json(SIPdata=input_df,
-               file_name=filename,
-               author=author,
+    PySIP.Json(input_df,
+               filename,
+               author,
                dependence=dependence,
                boundedness=boundedness,
                bounds=bounds,
                term_saved=term_saved,
                probs=probs,
-               quantile_corr_matrix=quantile_corr_matrix,
                seeds=seeds
                )
 
@@ -324,8 +310,7 @@ def convert_to_JSON(input_df,
             file_name=filename
         )
     return True
-
-
+# 
 def preprocess_charts(x,
                       probs,
                       boundedness,
@@ -641,13 +626,7 @@ def make_csv_graph(series,
 # micro_data = get_micropredictions()
 # micro_data_df = pd.DataFrame([ p for p in micro_data if p > 0.01 ], columns=[col_name])
 SP_data = micropredictions_S_P()
-stock_data = micropredictions_stock()
-SP_data_stats = SP_data.describe()
-stock_data_stats = stock_data.describe()
-micro_data_df = pd.concat([SP_data_stats.loc[['25%', '50%','75%']], 
-                           stock_data_stats.loc[['25%', '50%','75%']]], 
-                           axis=1)*10
-micro_data_df.index = [0.25, 0.5, 0.75]
+micro_data_df = micropredictions_S_P()*10
 # micro_data_df = get_nyc_data()
 # print(micro_data_df.dtypes)
 # print(micro_data_df.dtypes)
@@ -664,23 +643,12 @@ seeds = [
                     "seed3": 0,
                     "seed4": 0
                 }
-            },
-            {
-                "name": "hdr2",
-                "function": "HDR_2_0",
-                "arguments": {
-                    "counter": "PM_Index",
-                    "entity": 1,
-                    "varId": var_id,
-                    "seed3": 0,
-                    "seed4": 0
-                }
             }
         ]
 # table_container.subheader(f"Preview for {name}")
 # table_container.write(micro_data_df[:10].to_html(
 #     index=False), unsafe_allow_html=True)
-probs=micro_data_df.index
+probs=np.nan
 boundedness='u'
 # bounds=[micro_data_df.iloc[:,0].min()]
 bounds=[micro_data_df.iloc[:,0].min()-0.01, 1.25*micro_data_df.iloc[:,0].max()]
@@ -696,10 +664,7 @@ micro_data_df[[name]].apply(make_csv_graph,
                 bounds=bounds,
                 big_plots=big_plots,
                 user_terms=user_terms,
-                graphs=graphs)
-corrs_data = [[1,None],[corr,1]]            
-correlation_df = pd.DataFrame(corrs_data,columns=micro_data_df.columns,index=micro_data_df.columns)
-print('correlation_df is ', correlation_df)
+                graphs=graphs)           
 text_container.markdown('''
     <p class="big-font"></p>''', unsafe_allow_html=True)
 text_container.markdown('''
@@ -719,7 +684,6 @@ convert_to_JSON(micro_data_df,
                 bounds,
                 user_terms,
                 probs,
-                correlation_df,
                 seeds)
      
 copy_button = Button(label=f"Copy {file_name} to clipboard.")
